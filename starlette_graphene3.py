@@ -386,17 +386,26 @@ class GraphQLApp:
             pass
         except websockets.exceptions.ConnectionClosedOK:
             pass
+        except websockets.exceptions.ConnectionClosedError:
+            pass
         except Exception as error:
             if not isinstance(error, GraphQLError):
                 self.logger.error("An exception occurred in resolvers", exc_info=error)
                 error = GraphQLError(str(error), original_error=error)
-            await websocket.send_json(
-                {
-                    "type": GQL_DATA,
-                    "id": operation_id,
-                    "payload": {"errors": [self.error_formatter(error)]},
-                }
-            )
+            try:
+                await websocket.send_json(
+                    {
+                        "type": GQL_DATA,
+                        "id": operation_id,
+                        "payload": {"errors": [self.error_formatter(error)]},
+                    }
+                )
+            except RuntimeError:
+                pass
+            except websockets.exceptions.ConnectionClosedError:
+                pass
+            except websockets.exceptions.ConnectionClosedOK:
+                pass
 
         if (
             websocket.client_state != WebSocketState.DISCONNECTED
