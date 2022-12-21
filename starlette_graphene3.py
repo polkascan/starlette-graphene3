@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import websockets
 from inspect import isawaitable
 from typing import (
     Any,
@@ -381,6 +382,10 @@ class GraphQLApp:
                 await websocket.send_json(
                     {"type": GQL_DATA, "id": operation_id, "payload": payload}
                 )
+        except RuntimeError:
+            pass
+        except websockets.exceptions.ConnectionClosedOK:
+            pass
         except Exception as error:
             if not isinstance(error, GraphQLError):
                 self.logger.error("An exception occurred in resolvers", exc_info=error)
@@ -397,7 +402,14 @@ class GraphQLApp:
             websocket.client_state != WebSocketState.DISCONNECTED
             and websocket.application_state != WebSocketState.DISCONNECTED
         ):
-            await websocket.send_json({"type": GQL_COMPLETE, "id": operation_id})
+            try:
+                await websocket.send_json({"type": GQL_COMPLETE, "id": operation_id})
+            except RuntimeError:
+                pass
+            except websockets.exceptions.ConnectionClosedError:
+                pass
+            except websockets.exceptions.ConnectionClosedOK:
+                pass
 
 
 async def _get_operation_from_request(
